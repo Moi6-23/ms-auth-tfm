@@ -28,5 +28,4 @@ target/classes/application.properties
 src/main/resources/application-dev.properties
 src/main/resources/application-prod.properties
 target/classes/application-dev.properties
-target/classes/application-dev.properties
 target/classes/application-prod.properties
