@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
 
@@ -19,8 +20,8 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/login")
-    public ResponseEntity<AuthRequest> login(@RequestBody AuthRequest request) {
-        return new ResponseEntity<>(request, HttpStatus.OK);
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
+        return ResponseEntity.ok(userService.login(request));
     }
 
     @PostMapping("/register")
