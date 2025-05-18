@@ -15,6 +15,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final SecurityConfig securityConfig;
+    private final JwtService jwtService;
 
     public void registerUser(RegisterRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
@@ -41,8 +42,8 @@ public class UserService {
         if (!securityConfig.passwordEncoder().matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Contraseña incorrecta");
         }
-
-        return new AuthResponse(200, "Login exitoso", null);
+        String token = jwtService.generateToken(user);
+        return new AuthResponse(200, "Login exitoso", token);
     }
 
 }
