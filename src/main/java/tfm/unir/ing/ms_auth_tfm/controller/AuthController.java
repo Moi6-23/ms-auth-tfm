@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tfm.unir.ing.ms_auth_tfm.dto.AuthRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
 
 @RestController
@@ -23,7 +24,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody AuthRequest request) {
+    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
         userService.registerUser(request);
         return ResponseEntity.ok("Usuario registrado correctamente");
     }
