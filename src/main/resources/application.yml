@@ -11,6 +11,10 @@ spring:
       ddl-auto: update
     show-sql: true
 
+server:
+  port: ${PORT:8080}
+  fullAddress: ${HOST:http://localhost}:${PORT:${server.port}}
+
 logging:
   level:
     org:
