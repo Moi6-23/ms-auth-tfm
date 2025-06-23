@@ -3,5 +3,5 @@ eureka:
     preferIpAddress: false
     non-secure-port-enabled: true
     secure-port-enabled: false
-    non-secure-port: ${server.port}
+    non-secure-port: ${PORT:8080}
     secure-port: 443
