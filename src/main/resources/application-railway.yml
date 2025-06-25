@@ -5,3 +5,12 @@ eureka:
     secure-port-enabled: false
     non-secure-port: ${PORT:8080}
     secure-port: 443
+
+server:
+  tomcat:
+    max-threads: 20
+    min-spare-threads: 5
+
+spring:
+  main:
+    lazy-initialization: true
