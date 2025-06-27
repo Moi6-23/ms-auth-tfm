@@ -8,9 +8,6 @@ eureka:
     preferIpAddress: true # For local development. Set to false if you want to use the hostname in a DNS-enabled environment
     hostname: ${HOSTNAME:localhost}
 
-server:
-  port: ${PORT:8080}
-
 spring:
   application:
     name: ${APP_NAME:ms-auth-tfm}
