@@ -13,19 +13,20 @@ import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final UserService userService;
 
-    @PostMapping("/login")
+    @PostMapping("/sessions")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         return ResponseEntity.ok(userService.login(request));
     }
 
-    @PostMapping("/register")
+    @PostMapping("/users")
     public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+
         userService.registerUser(request);
         return ResponseEntity.ok("Usuario registrado correctamente");
     }
