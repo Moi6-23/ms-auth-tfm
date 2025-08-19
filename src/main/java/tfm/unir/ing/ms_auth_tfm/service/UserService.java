@@ -11,6 +11,7 @@ import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.updateProfile.ProfileUpdateRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.users.ChangePasswordRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
 import tfm.unir.ing.ms_auth_tfm.entity.User;
 import tfm.unir.ing.ms_auth_tfm.repository.UserRepository;
@@ -33,6 +34,7 @@ public class UserService {
     public ResponseEntity<SimpleResponse> registerUser(RegisterRequest request) {
         String normalizedEmail = request.getEmail().trim().toLowerCase();
         String plate = request.getPlacaVehiculo().trim().toUpperCase();
+        String password   = request.getPassword() == null ? "" : request.getPassword();
 
         log.info("Intento de registro con email={} placa={}", normalizedEmail, plate);
 
@@ -43,7 +45,12 @@ public class UserService {
                     .status(HttpStatus.BAD_REQUEST)
                     .body(new SimpleResponse(400, "El correo ya está registrado"));
         }
-
+        if (!password.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{8,64}$")) {
+            log.warn("Política de complejidad no cumplida para {}", normalizedEmail);
+            return ResponseEntity.badRequest()
+                    .body(new SimpleResponse(400,
+                            "La contraseña debe incluir mayúsculas, minúsculas, dígitos y un caracter especial"));
+        }
         // Crear usuario
         User user = new User();
         user.setName(request.getName());
@@ -59,7 +66,6 @@ public class UserService {
                 .status(HttpStatus.CREATED)
                 .body(new SimpleResponse(201, "Usuario registrado correctamente"));
     }
-
 
     public ResponseEntity<AuthResponse> login(AuthRequest request) {
         final String normalizedEmail = request.getEmail() == null ? null : request.getEmail().trim().toLowerCase();
@@ -199,11 +205,76 @@ public class UserService {
                         u.getEmail(),
                         u.getPlacaVehiculo(),
                         Boolean.TRUE.equals(u.getActive()),
-                        u.getCreatedAt() != null ? u.getCreatedAt().format(fmt) : null
+                        u.getCreatedAt() != null ? u.getCreatedAt().format(fmt) : null,
+                        u.getUpdatedAt() != null ? u.getUpdatedAt().format(fmt) : null
                 ))
                 .collect(Collectors.toList());
 
         log.info("Usuarios recuperados: {}", response.size());
         return ResponseEntity.ok(response);
+    }
+
+    public ResponseEntity<SimpleResponse> changePassword(String emailFromToken, ChangePasswordRequest req) {
+        final String email = emailFromToken == null ? null : emailFromToken.trim().toLowerCase();
+        if (email == null || email.isBlank()) {
+            log.warn("Token sin email válido en cambio de contraseña");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new SimpleResponse(401, "No autorizado"));
+        }
+
+        log.info("Iniciando cambio de contraseña para {}", email);
+
+        Optional<User> optUser = userRepository.findByEmailIgnoreCase(email);
+        if (optUser.isEmpty()) {
+            log.warn("Usuario no encontrado para email {}", email);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "Usuario no encontrado"));
+        }
+        User user = optUser.get();
+
+        // 1) Validaciones de request
+        String current = req.getCurrentPassword() == null ? "" : req.getCurrentPassword();
+        String nueva   = req.getNewPassword() == null ? "" : req.getNewPassword();
+        String confirm = req.getConfirmNewPassword() == null ? "" : req.getConfirmNewPassword();
+
+        if (nueva.length() < 8 || nueva.length() > 64) {
+            log.warn("Política de longitud de contraseña no cumplida para {}", email);
+            return ResponseEntity.badRequest()
+                    .body(new SimpleResponse(400, "La nueva contraseña debe tener entre 8 y 64 caracteres"));
+        }
+        if (!nueva.equals(confirm)) {
+            log.warn("Confirmación de contraseña no coincide para {}", email);
+            return ResponseEntity.badRequest()
+                    .body(new SimpleResponse(400, "La confirmación de la nueva contraseña no coincide"));
+        }
+        if (!securityConfig.passwordEncoder().matches(current, user.getPassword())) {
+            log.warn("Contraseña actual inválida para {}", email);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "La contraseña actual es incorrecta"));
+        }
+        if (securityConfig.passwordEncoder().matches(nueva, user.getPassword())) {
+            log.warn("Nueva contraseña igual a la actual para {}", email);
+            return ResponseEntity.badRequest()
+                    .body(new SimpleResponse(400, "La nueva contraseña no puede ser igual a la actual"));
+        }
+
+        // 2) Política de complejidad (opcional pero recomendado)
+        // Requiere al menos: 1 mayúscula, 1 minúscula, 1 dígito, 1 caracter especial
+        if (!nueva.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^\\w\\s]).{8,64}$")) {
+            log.warn("Política de complejidad no cumplida para {}", email);
+            return ResponseEntity.badRequest()
+                    .body(new SimpleResponse(400,
+                            "La contraseña debe incluir mayúsculas, minúsculas, dígitos y un caracter especial"));
+        }
+
+        // 3) Persistir
+        String encoded = securityConfig.passwordEncoder().encode(nueva);
+        user.setPassword(encoded);
+        userRepository.save(user);
+
+        log.info("Contraseña actualizada correctamente para userId={} email={}", user.getId(), email);
+
+        // Opcional: podrías invalidar/rotar tokens emitidos anteriormente (lista de deny/JTI).
+        return ResponseEntity.ok(new SimpleResponse(200, "Contraseña actualizada correctamente"));
     }
 }

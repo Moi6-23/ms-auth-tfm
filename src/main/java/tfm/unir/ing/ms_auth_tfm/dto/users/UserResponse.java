@@ -11,4 +11,6 @@ public class UserResponse {
     private String placaVehiculo;
     private boolean active;
     private String createdAt;
+    private String updatedAt;
+
 }

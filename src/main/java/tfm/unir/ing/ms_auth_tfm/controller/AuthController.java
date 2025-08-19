@@ -12,6 +12,7 @@ import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.updateProfile.ProfileUpdateRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.users.ChangePasswordRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
 import tfm.unir.ing.ms_auth_tfm.entity.User;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
@@ -47,5 +48,18 @@ public class AuthController {
     @GetMapping("/users")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         return userService.getAllUsers();
+    }
+
+    @PatchMapping("/users/password")
+    public ResponseEntity<SimpleResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        // Opción B: principal es la entidad User
+        tfm.unir.ing.ms_auth_tfm.entity.User principal =
+                (tfm.unir.ing.ms_auth_tfm.entity.User) SecurityContextHolder.getContext()
+                        .getAuthentication().getPrincipal();
+
+        String emailFromToken = principal.getEmail();
+        log.info("[PATCH] Solicitud de cambio de contraseña para {}", emailFromToken);
+
+        return userService.changePassword(emailFromToken, request);
     }
 }
