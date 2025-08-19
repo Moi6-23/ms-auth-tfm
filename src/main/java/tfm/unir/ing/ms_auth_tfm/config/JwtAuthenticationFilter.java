@@ -42,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("subject token: " + userEmail);
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            User user = userRepository.findByEmail(userEmail).orElse(null);
+            User user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
 
             if (user != null && jwtService.isTokenValid(jwt, user)) {
                 System.out.println("Token válido para: " + user.getEmail());

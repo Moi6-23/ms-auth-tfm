@@ -1,17 +1,24 @@
 package tfm.unir.ing.ms_auth_tfm.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import tfm.unir.ing.ms_auth_tfm.dto.SimpleResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.updateProfile.ProfileUpdateRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
+import tfm.unir.ing.ms_auth_tfm.entity.User;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
 
+import java.util.List;
+
+@Slf4j
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -21,13 +28,24 @@ public class AuthController {
 
     @PostMapping("/sessions")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
-        return ResponseEntity.ok(userService.login(request));
+        return userService.login(request);
     }
 
     @PostMapping("/users")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<SimpleResponse> register(@RequestBody RegisterRequest request) {
+        return userService.registerUser(request);
+    }
 
-        userService.registerUser(request);
-        return ResponseEntity.ok("Usuario registrado correctamente");
+    @PatchMapping("/users/profile")
+    public ResponseEntity<SimpleResponse> updateProfile(@Valid @RequestBody ProfileUpdateRequest request) {
+        User principal = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String emailFromToken = principal.getEmail();
+        log.info("[PATCH] Solicitud de actualización de perfil para usuario {}", emailFromToken);
+        return userService.updateProfile(emailFromToken, request);
+    }
+
+    @GetMapping("/users")
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        return userService.getAllUsers();
     }
 }

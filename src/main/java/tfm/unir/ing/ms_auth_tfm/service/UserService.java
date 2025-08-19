@@ -1,14 +1,27 @@
 package tfm.unir.ing.ms_auth_tfm.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import tfm.unir.ing.ms_auth_tfm.config.SecurityConfig;
+import tfm.unir.ing.ms_auth_tfm.dto.SimpleResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.updateProfile.ProfileUpdateRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
 import tfm.unir.ing.ms_auth_tfm.entity.User;
 import tfm.unir.ing.ms_auth_tfm.repository.UserRepository;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -17,33 +30,180 @@ public class UserService {
     private final SecurityConfig securityConfig;
     private final JwtService jwtService;
 
-    public void registerUser(RegisterRequest request) {
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("El correo ya está registrado");
+    public ResponseEntity<SimpleResponse> registerUser(RegisterRequest request) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        String plate = request.getPlacaVehiculo().trim().toUpperCase();
+
+        log.info("Intento de registro con email={} placa={}", normalizedEmail, plate);
+
+        // Validar unicidad de email
+        if (userRepository.findByEmailIgnoreCase(normalizedEmail).isPresent()) {
+            log.warn("El correo {} ya está registrado", normalizedEmail);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "El correo ya está registrado"));
         }
 
-        if (userRepository.findByPlacaVehiculo(request.getPlacaVehiculo()).isPresent()) {
-            throw new IllegalArgumentException("La placa del vehículo ya está registrada");
-        }
-
+        // Crear usuario
         User user = new User();
         user.setName(request.getName());
-        user.setEmail(request.getEmail());
-        user.setPlacaVehiculo(request.getPlacaVehiculo());
+        user.setEmail(normalizedEmail);
+        user.setPlacaVehiculo(plate);
         user.setPassword(securityConfig.passwordEncoder().encode(request.getPassword()));
         user.setActive(true);
         userRepository.save(user);
+
+        log.info("Usuario registrado exitosamente con email={}", normalizedEmail);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new SimpleResponse(201, "Usuario registrado correctamente"));
     }
 
-    public AuthResponse login(AuthRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Correo no registrado"));
 
-        if (!securityConfig.passwordEncoder().matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Contraseña incorrecta");
+    public ResponseEntity<AuthResponse> login(AuthRequest request) {
+        final String normalizedEmail = request.getEmail() == null ? null : request.getEmail().trim().toLowerCase();
+
+        log.info("Intento de login para {}", normalizedEmail);
+
+        Optional<User> optUser = userRepository.findByEmailIgnoreCase(normalizedEmail);
+        if (optUser.isEmpty()) {
+            log.warn("Correo no registrado: {}", normalizedEmail);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new AuthResponse(400, "Correo no registrado", null));
         }
+
+        User user = optUser.get();
+        if (!securityConfig.passwordEncoder().matches(request.getPassword(), user.getPassword())) {
+            log.warn("Contraseña incorrecta para {}", normalizedEmail);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new AuthResponse(400, "Contraseña incorrecta", null));
+        }
+
         String token = jwtService.generateToken(user);
-        return new AuthResponse(200, "Login exitoso", token);
+        log.info("Login exitoso para {}", normalizedEmail);
+
+        return ResponseEntity.ok(new AuthResponse(200, "Login exitoso", token));
     }
 
+    public ResponseEntity<SimpleResponse> updateProfile(String emailFromToken, ProfileUpdateRequest request) {
+        final String email = emailFromToken == null ? null : emailFromToken.trim().toLowerCase();
+        if (email == null || email.isBlank()) {
+            log.warn("Token sin email válido al actualizar perfil");
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new SimpleResponse(401, "No autorizado"));
+        }
+
+        log.info("Actualización de perfil iniciada para {}", email);
+
+        // 1) Buscar usuario por email (email inmutable)
+        Optional<User> optUser = userRepository.findByEmailIgnoreCase(email);
+        if (optUser.isEmpty()) {
+            log.warn("Usuario no encontrado para email {}", email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "Usuario no encontrado"));
+        }
+        User user = optUser.get();
+
+        // 2) Validación del nombre
+        String newName = request.getName() == null ? "" : request.getName().trim().replaceAll("\\s+", " ");
+        if (newName.isEmpty()) {
+            log.warn("Nombre vacío en actualización de perfil para {}", email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "El nombre no puede estar vacío"));
+        }
+        if (newName.length() > 60) {
+            log.warn("Nombre demasiado largo ({} chars) para {}", newName.length(), email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "El nombre excede la longitud permitida (máx. 60)"));
+        }
+        // opcional: restringir caracteres válidos
+        if (!newName.matches("^[A-Za-zÁÉÍÓÚáéíóúÑñ\\s-]+$")) {
+            log.warn("Nombre con caracteres inválidos '{}' para {}", newName, email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "El nombre contiene caracteres inválidos"));
+        }
+
+        // 3) Validación de la placa
+        String newPlate = request.getPlacaVehiculo() == null ? "" : request.getPlacaVehiculo().trim().toUpperCase();
+        if (newPlate.isEmpty()) {
+            log.warn("Placa vacía en actualización de perfil para {}", email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "La placa no puede estar vacía"));
+        }
+        if (newPlate.length() > 10) {
+            log.warn("Placa demasiado larga ({} chars) para {}", newPlate.length(), email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "La placa excede la longitud permitida (máx. 10)"));
+        }
+        // Formatos comunes CO: ABC123, ABC12D, ABC-123
+        if (!newPlate.matches("^[A-Z]{3}-?[0-9A-Z]{3}$")) {
+            log.warn("Formato inválido de placa '{}' para {}", newPlate, email);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(new SimpleResponse(400, "La placa del vehículo no tiene un formato válido"));
+        }
+
+        // 4) Unicidad de placa si cambió
+        if (!newPlate.equalsIgnoreCase(user.getPlacaVehiculo())) {
+            Optional<User> conflict = userRepository.findByPlacaVehiculo(newPlate);
+            if (conflict.isPresent() && !conflict.get().getId().equals(user.getId())) {
+                log.warn("Conflicto: placa '{}' ya registrada por userId={}", newPlate, conflict.get().getId());
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(new SimpleResponse(400, "La placa del vehículo ya está registrada"));
+            }
+        }
+
+        // 5) Persistir cambios
+        log.debug("Aplicando cambios. Antes: name='{}', placa='{}'", user.getName(), user.getPlacaVehiculo());
+        user.setName(newName);
+        user.setPlacaVehiculo(newPlate);
+        userRepository.save(user);
+
+        log.info("Perfil actualizado OK: userId={}, email={}, name='{}', placa='{}'",
+                user.getId(), user.getEmail(), user.getName(), user.getPlacaVehiculo());
+
+        return ResponseEntity.ok(new SimpleResponse(200, "Perfil actualizado correctamente"));
+    }
+
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
+        log.info("Consultando todos los usuarios registrados");
+
+        List<User> users = userRepository.findAll();
+
+        if (users.isEmpty()) {
+            log.warn("No hay usuarios registrados en el sistema");
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build(); // 204 No Content
+        }
+
+        DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
+        List<UserResponse> response = users.stream()
+                .sorted(Comparator.comparing(
+                        User::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed())
+                .map(u -> new UserResponse(
+                        u.getId(),
+                        u.getName(),
+                        u.getEmail(),
+                        u.getPlacaVehiculo(),
+                        Boolean.TRUE.equals(u.getActive()),
+                        u.getCreatedAt() != null ? u.getCreatedAt().format(fmt) : null
+                ))
+                .collect(Collectors.toList());
+
+        log.info("Usuarios recuperados: {}", response.size());
+        return ResponseEntity.ok(response);
+    }
 }
