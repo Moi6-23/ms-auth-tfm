@@ -27,7 +27,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/sessions/**",
                                 "/api/users/**"
-                        ).permitAll()                        .anyRequest().authenticated()                    // protege el resto
+                        ).permitAll()
+                        .anyRequest().authenticated()                    // protege el resto
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

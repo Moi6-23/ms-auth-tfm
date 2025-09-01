@@ -24,6 +24,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
+    private boolean isWhitelisted(HttpServletRequest req) {
+        String p = req.getServletPath();
+        if (p.startsWith("/api/sessions")) return true;
+        // Permitir POST /api/users (registro)
+        if (p.equals("/api/users") && "POST".equalsIgnoreCase(req.getMethod())) return true;
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
@@ -31,6 +39,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
+
+        if (isWhitelisted(request)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);

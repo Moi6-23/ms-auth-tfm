@@ -1,7 +1,9 @@
 package tfm.unir.ing.ms_auth_tfm.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import tfm.unir.ing.ms_auth_tfm.config.SecurityConfig;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
@@ -19,11 +21,11 @@ public class UserService {
 
     public void registerUser(RegisterRequest request) {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("El correo ya está registrado");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El correo ya está registrado");
         }
 
         if (userRepository.findByPlacaVehiculo(request.getPlacaVehiculo()).isPresent()) {
-            throw new IllegalArgumentException("La placa del vehículo ya está registrada");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa del vehículo ya está registrada");
         }
 
         User user = new User();
@@ -37,11 +39,12 @@ public class UserService {
 
     public AuthResponse login(AuthRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Correo no registrado"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Correo no registrado"));
 
         if (!securityConfig.passwordEncoder().matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Contraseña incorrecta");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Contraseña incorrecta");
         }
+
         String token = jwtService.generateToken(user);
         return new AuthResponse(200, "Login exitoso", token);
     }
