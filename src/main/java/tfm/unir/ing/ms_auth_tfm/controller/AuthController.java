@@ -21,9 +21,9 @@ public class AuthController {
     private final UserService userService;
 
     @PostMapping("/sessions")
-    public ResponseEntity<SimpleResponse> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         userService.login(request);
-        return ResponseEntity.ok(new SimpleResponse(200, "Inicio de sesión correcto"));
+        return ResponseEntity.ok(userService.login(request));
     }
 
     @PostMapping("/users")
