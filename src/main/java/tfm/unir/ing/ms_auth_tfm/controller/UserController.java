@@ -19,7 +19,7 @@ public class UserController {
      * Devuelve el perfil del usuario autenticado leyendo el principal del SecurityContext.
      * Requiere que el JwtAuthenticationFilter haya validado el token.
      */
-    @GetMapping("/user")
+    @GetMapping("/me")
     public ResponseEntity<UserProfileDto> userProfile() {
         return ResponseEntity.ok(userService.getCurrentProfile());
     }
