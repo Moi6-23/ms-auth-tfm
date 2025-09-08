@@ -44,8 +44,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/sessions").permitAll() // login
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()    // registro si lo tienes en /api
                         .requestMatchers(HttpMethod.GET, "/api/users").permitAll()    // consulta de todos los usuarios
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/profile").authenticated() //Edicion de perfil
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/password").authenticated() // cambio de contraseña
+                        .requestMatchers(HttpMethod.PATCH, "/api/profiles").authenticated() //Edicion de perfil
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
