@@ -4,7 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import tfm.unir.ing.ms_auth_tfm.config.SecurityConfig;
 import tfm.unir.ing.ms_auth_tfm.dto.SimpleResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
@@ -13,6 +18,7 @@ import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.updateProfile.ProfileUpdateRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.users.ChangePasswordRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
+import tfm.unir.ing.ms_auth_tfm.dto.userProfile.UserProfileDto;
 import tfm.unir.ing.ms_auth_tfm.entity.User;
 import tfm.unir.ing.ms_auth_tfm.repository.UserRepository;
 
@@ -234,7 +240,7 @@ public class UserService {
 
         // 1) Validaciones de request
         String current = req.getCurrentPassword() == null ? "" : req.getCurrentPassword();
-        String nueva   = req.getNewPassword() == null ? "" : req.getNewPassword();
+        String nueva = req.getNewPassword() == null ? "" : req.getNewPassword();
         String confirm = req.getConfirmNewPassword() == null ? "" : req.getConfirmNewPassword();
 
         if (nueva.length() < 8 || nueva.length() > 64) {
@@ -276,5 +282,45 @@ public class UserService {
 
         // Opcional: podrías invalidar/rotar tokens emitidos anteriormente (lista de deny/JTI).
         return ResponseEntity.ok(new SimpleResponse(200, "Contraseña actualizada correctamente"));
+    }
+
+    public UserProfileDto getCurrentProfile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado");
+        }
+
+        Object principal = auth.getPrincipal();
+        User user;
+
+        if (principal instanceof User u) {
+            user = u;
+        } else if (principal instanceof UserDetails ud) {
+            String email = ud.getUsername();
+            user = userRepository.findByEmailIgnoreCase(email)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        } else if (principal instanceof String s) {
+            user = userRepository.findByEmailIgnoreCase(s)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        } else {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Principal desconocido");
+        }
+
+        if (user.getActive() == null || !user.getActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Usuario inactivo");
+        }
+
+        return toDto(user);
+    }
+
+    private UserProfileDto toDto(User u) {
+        return UserProfileDto.builder()
+                .id(u.getId())
+                .name(u.getName())
+                .email(u.getEmail())
+                .placaVehiculo(u.getPlacaVehiculo())
+                .createdAt(u.getCreatedAt())
+                .active(u.getActive())
+                .build();
     }
 }

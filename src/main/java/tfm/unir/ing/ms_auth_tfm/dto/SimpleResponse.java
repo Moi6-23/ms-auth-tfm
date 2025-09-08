@@ -1,8 +1,10 @@
 package tfm.unir.ing.ms_auth_tfm.dto;
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
 public class SimpleResponse {
     private int code;
