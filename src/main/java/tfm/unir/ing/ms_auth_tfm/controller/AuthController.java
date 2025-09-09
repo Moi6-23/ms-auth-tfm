@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import tfm.unir.ing.ms_auth_tfm.config.AdminGuard;
 import tfm.unir.ing.ms_auth_tfm.dto.SimpleResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
+import tfm.unir.ing.ms_auth_tfm.dto.login.AuthResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.users.UserResponse;
 import tfm.unir.ing.ms_auth_tfm.service.UserService;
@@ -23,9 +24,9 @@ public class AuthController {
     private final AdminGuard adminGuard;
 
     @PostMapping("/sessions")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
         userService.login(request);
-        return ResponseEntity.ok(userService.login(request));
+        return userService.login(request);
     }
 
     @PostMapping("/users")
