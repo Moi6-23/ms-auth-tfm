@@ -1,5 +1,4 @@
 package tfm.unir.ing.ms_auth_tfm.config;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

@@ -23,6 +23,12 @@ public class JwtService {
     @Value("${security.jwt.expiration-time}")
     private long jwtExpiration;
 
+    @Value("${security.jwt.issuer}")
+    private String issuer;
+
+    @Value("${security.jwt.audience}")
+    private String audience;
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -53,6 +59,8 @@ public class JwtService {
                 .builder()
                 .setClaims(extraClaims)
                 .setSubject(user.getEmail())
+                .setIssuer(issuer)
+                .setAudience(audience)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
@@ -64,7 +72,7 @@ public class JwtService {
         return (username.equals(user.getEmail())) && !isTokenExpired(token);
     }
 
-    private boolean isTokenExpired(String token) {
+    public boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 

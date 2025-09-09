@@ -38,3 +38,10 @@ security:
   jwt:
     secret-key: ${JWT_SECRET:changeme}
     expiration-time: ${JWT_EXPIRATION:3600000}
+    issuer: ${JWT_ISSUER}
+    audience: ${JWT_AUDIENCE}
+
+simulator:
+  allowed-email: ${ALLOWED_EMAIL}
+  secret-header-name: ${SECRET_HEADER_NAME}
+  secret-header-value: ${SECRET_HEADER_VALUE}

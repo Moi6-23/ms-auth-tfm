@@ -9,9 +9,13 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
@@ -24,6 +28,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -43,7 +48,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // CORS preflight
                         .requestMatchers(HttpMethod.POST, "/api/sessions").permitAll() // login
                         .requestMatchers(HttpMethod.POST, "/api/users").permitAll()    // registro si lo tienes en /api
-                        .requestMatchers(HttpMethod.GET, "/api/users").permitAll()    // consulta de todos los usuarios
+                        .requestMatchers(HttpMethod.GET, "/api/users").authenticated()    // consulta de todos los usuarios
                         .requestMatchers(HttpMethod.PATCH, "/api/profiles").authenticated() //Edicion de perfil
                         .anyRequest().authenticated()
                 )
@@ -64,5 +69,13 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // Evita romper el JSON si la descripción trae comillas o saltos de línea
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
+    }
 
 }

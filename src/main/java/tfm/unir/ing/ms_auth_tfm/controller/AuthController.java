@@ -1,8 +1,10 @@
 package tfm.unir.ing.ms_auth_tfm.controller;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import tfm.unir.ing.ms_auth_tfm.config.AdminGuard;
 import tfm.unir.ing.ms_auth_tfm.dto.SimpleResponse;
 import tfm.unir.ing.ms_auth_tfm.dto.login.AuthRequest;
 import tfm.unir.ing.ms_auth_tfm.dto.register.RegisterRequest;
@@ -18,6 +20,7 @@ import java.util.List;
 public class AuthController {
 
     private final UserService userService;
+    private final AdminGuard adminGuard;
 
     @PostMapping("/sessions")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
@@ -31,7 +34,10 @@ public class AuthController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
+    public ResponseEntity<List<UserResponse>> getAllUsers(
+            HttpServletRequest httpServletRequest
+    ) {
+        adminGuard.enforce(httpServletRequest);
         return userService.getAllUsers();
     }
 

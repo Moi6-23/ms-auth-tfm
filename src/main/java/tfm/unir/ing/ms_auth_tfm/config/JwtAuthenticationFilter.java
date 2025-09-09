@@ -38,36 +38,75 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
 
+        // 1) Deja pasar las whitelisted y sal
         if (isWhitelisted(request)) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // 2) Si NO hay Authorization en rutas protegidas => 401
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            writeUnauthorized(response, "Missing or invalid Authorization header");
             return;
         }
 
-        jwt = authHeader.substring(7);
-        String userEmail = jwtService.extractUsername(jwt);
-        System.out.println("subject token: " + userEmail);
+        final String jwt = authHeader.substring(7).trim();
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            User user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
+        try {
+            // 3) Extrae el "username" (sub/email) y valida expiración/firmado
+            final String userEmail = jwtService.extractUsername(jwt); // aquí te explotaba por expirado
+            if (userEmail == null || userEmail.isBlank()) {
+                writeUnauthorized(response, "Invalid token");
+                return;
+            }
 
-            if (user != null && jwtService.isTokenValid(jwt, user)) {
-                System.out.println("Token válido para: " + user.getEmail());
+            // 4) Si no hay auth ya seteado, autentica
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                final User user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
+                if (user == null) {
+                    writeUnauthorized(response, "Invalid credentials");
+                    return;
+                }
+
+                if (!jwtService.isTokenValid(jwt, user)) { // internamente revisa expiración y subject
+                    writeUnauthorized(response, "Token expired or invalid");
+                    return;
+                }
+
+                // 5) Construye Authentication y colócalo en el contexto
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(user, null, new ArrayList<>());
-
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-        }
 
-        filterChain.doFilter(request, response);
+            // 6) Continua la cadena si todo OK
+            filterChain.doFilter(request, response);
+        }
+        catch (io.jsonwebtoken.ExpiredJwtException ex) {
+            writeUnauthorized(response, "Token expired");
+        }
+        catch (io.jsonwebtoken.security.SignatureException ex) {
+            writeUnauthorized(response, "Invalid token signature");
+        }
+        catch (io.jsonwebtoken.MalformedJwtException | io.jsonwebtoken.UnsupportedJwtException ex) {
+            writeUnauthorized(response, "Malformed or unsupported token");
+        }
+        catch (IllegalArgumentException ex) {
+            writeUnauthorized(response, "Invalid token");
+        }
+        catch (Exception ex) {
+            // fallback: no reveles detalles
+            writeUnauthorized(response, "Unauthorized");
+        }
     }
+
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 401
+        response.setContentType("application/json");
+        response.getWriter().write("{\"code\":401,\"message\":\"" + message + "\"}");
+        response.getWriter().flush();
+    }
+
 }
