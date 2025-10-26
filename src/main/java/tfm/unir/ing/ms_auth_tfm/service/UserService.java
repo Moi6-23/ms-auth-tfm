@@ -144,7 +144,6 @@ public class UserService implements UserServiceInterface{
             String nueva   = req.getNewPassword() == null ? "" : req.getNewPassword();
             String confirm = req.getConfirmNewPassword() == null ? "" : req.getConfirmNewPassword();
 
-            // Reglas existentes (las tuyas)
             if (nueva.length() < 8 || nueva.length() > 64) {
                 log.warn("Política de longitud de contraseña no cumplida para {}", email);
                 return ResponseEntity.badRequest()

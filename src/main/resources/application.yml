@@ -19,7 +19,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
 
 server:
   port: ${PORT:8080}
@@ -29,10 +29,10 @@ logging:
   level:
     org:
       springframework:
-        web: DEBUG
+        web: INFO
         context:
           annotation:
-            ClassPathBeanDefinitionScanner: DEBUG
+            ClassPathBeanDefinitionScanner: INFO
 
 security:
   jwt:
